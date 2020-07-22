@@ -1,0 +1,3 @@
+[submodule "MailKit"]
+	path = MailKit
+	url = https://github.com/ekalchev/MailKit.git
