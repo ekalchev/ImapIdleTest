@@ -42,6 +42,13 @@ namespace ImapIdleTest
             SystemEvents.PowerModeChanged += SystemEvents_PowerModeChanged;
 
             StartNewTests();
+
+            Application.Current.Dispatcher.InvokeAsync(async () => 
+            {
+                await Task.Delay(5000);
+                syncIdleTest.Cancel();
+                asyncIdleTest.Cancel();
+            });
         }
 
         private void StartNewTests()

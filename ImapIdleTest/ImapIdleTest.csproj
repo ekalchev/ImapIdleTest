@@ -115,5 +115,10 @@
       <Name>MimeKit</Name>
     </ProjectReference>
   </ItemGroup>
+  <ItemGroup>
+    <Content Include="procdump.exe">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

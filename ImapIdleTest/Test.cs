@@ -4,6 +4,8 @@ using MailKit.Security;
 using Microsoft.Win32;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -62,6 +64,16 @@ namespace ImapIdleTest
                     if(workerThread.IsAlive == true)
                     {
                         Logger.Log($"Idle {workerThread.Name}: was not cancelled!!!!");
+
+                        try
+                        {
+                            Process.Start(Path.Combine(Directory.GetCurrentDirectory(), "procdump.exe"), "-ma " + Process.GetCurrentProcess().Id.ToString());
+                        }
+                        catch(Exception)
+                        {
+
+                        }
+
                         await Application.Current.Dispatcher.InvokeAsync(() => 
                         {
                             workerThread = null;
