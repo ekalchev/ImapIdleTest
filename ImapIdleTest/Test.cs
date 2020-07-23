@@ -22,12 +22,15 @@ namespace ImapIdleTest
         private readonly string id;
         private readonly bool useAsync;
         public event EventHandler IdleCancellationFailed;
+        private readonly ImapClient imapClient;
+        private bool isInIdle = false;
 
         public Test(bool useAsync)
         {
             StartIdle();
             id = useAsync ? "Async Idle" : "Sync Idle";
             this.useAsync = useAsync;
+            imapClient = new ImapClient();
         }
 
         private void StartIdle()
@@ -51,20 +54,30 @@ namespace ImapIdleTest
 
         public void Cancel()
         {
+            Logger.Log($"{workerThread.Name}: Cancelling cancellation tokens");
+
             doneTokenSource.Cancel();
             disconnectTokenSource.Cancel();
 
             Task.Run(async () =>
             {
-                while (workerThread.IsAlive == true)
+                Thread.MemoryBarrier();
+
+                while (imapClient.IsIdle)
                 {
-                    await Task.Delay(5000);
-                    
-                    // if 5 sec after cancellation the thread thread is still alive that means
+                    Thread.MemoryBarrier();
+
+                    await Task.Delay(10000);
+
+                    // if x sec after the cancellation the thread is still alive that means
                     // imap.Idle was not cancelled
-                    if(workerThread.IsAlive == true)
+                    Thread.MemoryBarrier();
+
+                    if (imapClient.IsIdle)
                     {
-                        Logger.Log($"Idle {workerThread.Name}: was not cancelled!!!!");
+                        Thread.MemoryBarrier();
+
+                        Logger.Log($"IsIdle={imapClient.IsIdle}");
 
                         try
                         {
@@ -101,7 +114,7 @@ namespace ImapIdleTest
             }
             catch(Exception ex)
             {
-                Logger.Log($"{id}: {ex.Message}");
+                Logger.Log($"Exception {id}: {ex.Message}");
             }
         }
 
@@ -109,7 +122,6 @@ namespace ImapIdleTest
         {
             Thread.CurrentThread.Name = $"Imap Thread {id}";
             Logger.Log($"Thread started: {id}");
-            ImapClient imapClient = new ImapClient();
             OpenInbox(imapClient);
 
             while (doneTokenSource.Token.IsCancellationRequested == false && disconnectTokenSource.Token.IsCancellationRequested == false)
@@ -129,6 +141,8 @@ namespace ImapIdleTest
                 {
                     Logger.Log($"{id}: Imap idle starting");
 
+                    Thread.MemoryBarrier();
+
                     if (useAsync)
                     {
                         imapClient.IdleAsync(linkedTokenSource.Token, disconnectTokenSource.Token).GetAwaiter().GetResult();
@@ -138,11 +152,13 @@ namespace ImapIdleTest
                         imapClient.Idle(linkedTokenSource.Token, disconnectTokenSource.Token);
                     }
 
+                    Thread.MemoryBarrier();
+
                     Logger.Log($"{id}: Imap idle complete");
                 }
                 catch (ThreadAbortException)
                 {
-                    Logger.Log($"ThreadAbortException");
+                    Logger.Log($"Exception ThreadAbortException");
                 }
                 catch (OperationCanceledException)
                 {
@@ -150,7 +166,7 @@ namespace ImapIdleTest
                 }
                 catch (Exception ex)
                 {
-                    Logger.Log($"{id}: {ex.Message}");
+                    Logger.Log($"Exception {id}: {ex.Message}");
                 }
 
                 Thread.Sleep(3000);
@@ -158,7 +174,7 @@ namespace ImapIdleTest
 
             if (imapClient.IsConnected)
             {
-                imapClient.Disconnect(true);
+                imapClient.Disconnect(false);
             }
 
             Logger.Log($"Thread exit");
