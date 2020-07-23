@@ -36,6 +36,7 @@ namespace ImapIdleTest
             {
                 workerThread = new Thread(ThreadProc);
                 workerThread.Start();
+                workerThread.IsBackground = true;
             }
         }
 
@@ -86,14 +87,30 @@ namespace ImapIdleTest
             });
         }
 
+        private void OpenInbox(ImapClient imapClient)
+        {
+            try
+            {
+                if (imapClient.IsConnected == false)
+                {
+                    imapClient.Connect("mail.mobisystems.com", 993, SecureSocketOptions.SslOnConnect, default);
+                    imapClient.Authenticate("test1@mobisystems.com", "T%est654!!321");
+                }
+
+                imapClient.Inbox.Open(FolderAccess.ReadWrite);
+            }
+            catch(Exception ex)
+            {
+                Logger.Log($"{id}: {ex.Message}");
+            }
+        }
+
         private void ThreadProc()
         {
             Thread.CurrentThread.Name = $"Imap Thread {id}";
             Logger.Log($"Thread started: {id}");
             ImapClient imapClient = new ImapClient();
-            imapClient.Connect("mail.mobisystems.com", 993, SecureSocketOptions.SslOnConnect, default);
-            imapClient.Authenticate("test1@mobisystems.com", "T%est654!!321");
-            imapClient.Inbox.Open(FolderAccess.ReadWrite);
+            OpenInbox(imapClient);
 
             while (doneTokenSource.Token.IsCancellationRequested == false && disconnectTokenSource.Token.IsCancellationRequested == false)
             {
@@ -102,12 +119,16 @@ namespace ImapIdleTest
 #if DEBUG
                     new CancellationTokenSource(3 * 1000);
 #else
-                    new CancellationTokenSource(5 * 60 * 1000);
+                    new CancellationTokenSource(3 * 60 * 1000);
 #endif
                 CancellationTokenSource linkedTokenSource = CancellationTokenSource.CreateLinkedTokenSource(doneTokenSource.Token, timeoutCancellationTokenSource.Token);
 
+                OpenInbox(imapClient);
+
                 try
                 {
+                    Logger.Log($"{id}: Imap idle starting");
+
                     if (useAsync)
                     {
                         imapClient.IdleAsync(linkedTokenSource.Token, disconnectTokenSource.Token).GetAwaiter().GetResult();
@@ -116,6 +137,8 @@ namespace ImapIdleTest
                     {
                         imapClient.Idle(linkedTokenSource.Token, disconnectTokenSource.Token);
                     }
+
+                    Logger.Log($"{id}: Imap idle complete");
                 }
                 catch (ThreadAbortException)
                 {
@@ -129,6 +152,8 @@ namespace ImapIdleTest
                 {
                     Logger.Log($"{id}: {ex.Message}");
                 }
+
+                Thread.Sleep(3000);
             }
 
             if (imapClient.IsConnected)

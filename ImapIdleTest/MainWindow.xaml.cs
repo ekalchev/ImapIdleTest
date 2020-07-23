@@ -22,8 +22,8 @@ namespace ImapIdleTest
     /// </summary>
     public partial class MainWindow : Window
     {
-        private Test syncIdleTest = new Test(false);
-        private Test asyncIdleTest = new Test(true);
+        private Test syncIdleTest;
+        private Test asyncIdleTest;
 
         public bool StartFlashing
         {
@@ -42,13 +42,6 @@ namespace ImapIdleTest
             SystemEvents.PowerModeChanged += SystemEvents_PowerModeChanged;
 
             StartNewTests();
-
-            Application.Current.Dispatcher.InvokeAsync(async () => 
-            {
-                await Task.Delay(5000);
-                syncIdleTest.Cancel();
-                asyncIdleTest.Cancel();
-            });
         }
 
         private void StartNewTests()
